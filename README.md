@@ -2,7 +2,7 @@
 
 An AI-powered web application to assist in the **early diagnosis of oral cancer** using **InceptionV3**, a powerful deep learning model. This tool leverages medical imaging and intelligent automation to help healthcare professionals detect oral abnormalities quickly and accurately.
 
-![UI Preview](screenshots\ui.png) <!-- Replace with your actual screenshot path -->
+![UI Preview](./screenshots\UI.png) 
 
 ---
 
