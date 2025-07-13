@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Report: Oral Cancer Detection Using Deep Learning</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f5f7fa; /* A very light, clean background */
+            overflow-y: scroll; /* Default scrollable */
+        }
+        body.modal-open {
+            overflow: hidden; /* Prevent scrolling when modal is open */
+        }
+        .section-title {
+            @apply text-4xl md:text-5xl font-extrabold text-gray-800 mb-6 text-center tracking-tight; /* Bolder, tighter tracking */
+        }
+        .section-subtitle {
+            @apply text-xl text-gray-600 mb-12 text-center max-w-4xl mx-auto leading-relaxed;
+        }
+        .nav-link {
+            @apply px-4 py-2 text-gray-700 hover:text-blue-700 transition-colors duration-300 rounded-lg font-medium;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%; /* Ensure it takes full width of its parent */
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+            max-height: 50vh; /* Max height for responsiveness */
+            @apply bg-white p-6 rounded-xl shadow-xl border border-gray-100; /* Stronger shadow, subtle border */
+        }
+        /* Custom styles for loader and result messages */
+        #loader .animate-spin {
+            border-color: transparent;
+            border-bottom-color: #3b82f6;
+            border-left-color: #3b82f6;
+        }
+        .error-message {
+            @apply bg-red-100 text-red-700 p-4 rounded-lg mt-4;
+        }
+        .success-message {
+            @apply bg-green-100 text-green-700 p-4 rounded-lg mt-4;
+        }
+        /* Added for controlling section visibility */
+        .hidden {
+            display: none;
+        }
+
+        /* Modal specific styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8); /* Even darker overlay */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000; /* Ensure it's on top */
+        }
+        .modal-content {
+            background-color: #ffffff; /* Pure white for crispness */
+            padding: 2.5rem; /* Increased padding */
+            border-radius: 1.5rem; /* Even more rounded corners */
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3); /* Much stronger shadow */
+            max-width: 90%; /* Ensure it doesn't get too wide on large screens */
+            width: 100%; /* Take full width on small screens */
+            max-width: 480px; /* Slightly wider for better form layout on larger screens */
+            position: relative;
+            animation: fadeInScale 0.4s ease-out forwards; /* Slightly longer animation */
+        }
+
+        @keyframes fadeInScale {
+            from {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        /* Card hover effect */
+        .card-hover-effect {
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out, background-color 0.2s ease-in-out;
+            @apply bg-white rounded-xl shadow-lg border border-gray-100; /* Default card styling */
+        }
+        .card-hover-effect:hover {
+            transform: translateY(-8px); /* More pronounced lift */
+            box-shadow: 0 20px 30px rgba(0, 0, 0, 0.18); /* Stronger shadow on hover */
+            background-color: #fefefe; /* Very slight change on hover */
+        }
+
+        /* Button hover effect - Enhanced with direct CSS */
+        .btn-primary {
+            background-color: #2563eb; /* Fallback: Tailwind's blue-600 */
+            background-image: linear-gradient(to bottom right, #3b82f6, #2563eb); /* blue-500 to blue-600 */
+            color: white; /* text-white */
+            font-weight: 800; /* font-extrabold */
+            font-size: 1.125rem; /* text-lg (18px) */
+            padding: 1rem 2.5rem; /* py-4 px-10 */
+            border-radius: 0.5rem; /* rounded-lg */
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.1); /* shadow-2xl equivalent */
+            border: 1px solid #1e40af; /* border-blue-700 equivalent */
+            cursor: pointer; /* Indicate it's clickable */
+            width: 100%; /* w-full */
+            
+            /* Transitions for smooth effects */
+            transition: all 0.3s ease-in-out;
+        }
+
+        .btn-primary:hover {
+            background-image: linear-gradient(to bottom right, #2563eb, #3b82f6); /* Reverse gradient on hover */
+            transform: scale(1.05); /* hover:scale-105 */
+            box-shadow: 0 15px 20px -5px rgba(0, 0, 0, 0.3), 0 6px 10px -3px rgba(0, 0, 0, 0.15); /* More pronounced shadow on hover */
+        }
+
+        .btn-primary:active {
+            transform: scale(0.98); /* Subtle press effect */
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.2); /* Inset shadow on active */
+            border-color: #1c3d8b; /* Darker blue border on active */
+        }
+
+        /* Input field focus effect */
+        input[type="text"]:focus,
+        input[type="password"]:focus,
+        input[type="email"]:focus {
+            border-color: #3b82f6; /* blue-500 */
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3); /* blue-500 with opacity */
+        }
+    </style>
+</head>
+<body class="text-gray-700">
+
+    <header class="bg-white/95 backdrop-blur-md sticky top-0 z-50 shadow-xl border-b border-gray-100"> <!-- Stronger shadow, subtle border -->
+        <nav class="container mx-auto px-6 py-4 flex justify-between items-center">
+            <div class="text-3xl font-black text-blue-700 tracking-tight">Oralytics AI</div> <!-- Bolder, tighter tracking -->
+            <div class="hidden md:flex space-x-4 items-center"> <!-- Added items-center for vertical alignment -->
+                <a href="#home" class="nav-link">Home</a>
+                <a href="#problem" class="nav-link">Problem</a>
+                <a href="#solution" class="nav-link">Solution</a>
+                <a href="#detector" class="nav-link">Detector</a>
+                <a href="#" class="nav-link" id="nav-login">Login</a>
+                <a href="#" class="nav-link" id="nav-signup">Signup</a>
+                <span id="welcome-message" class="nav-link hidden text-blue-600 font-semibold"></span>
+                <!-- Profile picture link -->
+                <img src="https://placehold.co/40x40/aabbcc/ffffff?text=P" alt="Profile Picture" id="nav-profile-picture" class="w-10 h-10 rounded-full cursor-pointer object-cover border-2 border-blue-400 hidden">
+                <!-- Removed the separate nav-logout link -->
+                <a href="#performance" class="nav-link">Performance</a>
+                <a href="#future" class="nav-link">Future</a>
+            </div>
+        </nav>
+    </header>
+
+    <main>
+        <!-- Login Modal -->
+        <div id="login-modal" class="modal-overlay hidden">
+            <div class="modal-content">
+                <h2 class="section-title text-3xl">User Login</h2>
+                <p class="section-subtitle text-base mb-6">Log in to access personalized features.</p>
+                <form id="login-form" class="space-y-5">
+                    <div>
+                        <label for="login-username" class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                        <input type="text" id="login-username" name="username" required class="block w-full px-4 py-2.5 border border-gray-300 rounded-lg shadow-sm text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200">
+                    </div>
+                    <div>
+                        <label for="login-password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                        <input type="password" id="login-password" name="password" required class="block w-full px-4 py-2.5 border border-gray-300 rounded-lg shadow-sm text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200">
+                    </div>
+                    <button type="submit" id="login-button" class="btn-primary w-full">Login</button>
+                </form>
+                <div id="login-message" class="message-box mt-5"></div>
+                <p class="text-center text-sm mt-6">Don't have an account? <a href="#" id="go-to-signup-link" class="text-blue-600 hover:underline font-semibold">Sign Up</a></p>
+            </div>
+        </div>
+
+        <!-- Signup Modal -->
+        <div id="signup-modal" class="modal-overlay hidden">
+            <div class="modal-content">
+                <h2 class="section-title text-3xl">User Signup</h2>
+                <p class="section-subtitle text-base mb-6">Register a new account to use the application.</p>
+                <form id="signup-form" class="space-y-5">
+                    <div>
+                        <label for="signup-username" class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                        <input type="text" id="signup-username" name="username" required class="block w-full px-4 py-2.5 border border-gray-300 rounded-lg shadow-sm text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200">
+                    </div>
+                    <div>
+                        <label for="signup-email" class="block text-sm font-medium text-gray-700 mb-1">Email (Optional)</label>
+                        <input type="email" id="signup-email" name="email" class="block w-full px-4 py-2.5 border border-gray-300 rounded-lg shadow-sm text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200">
+                    </div>
+                    <div>
+                        <label for="signup-password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                        <input type="password" id="signup-password" name="password" required class="block w-full px-4 py-2.5 border border-gray-300 rounded-lg shadow-sm text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200">
+                    </div>
+                    <button type="submit" id="signup-button" class="btn-primary w-full">Sign Up</button>
+                </form>
+                <div id="signup-message" class="message-box mt-5"></div>
+            </div>
+        </div>
+
+        <!-- Profile Modal -->
+        <div id="profile-modal" class="modal-overlay hidden">
+            <div class="modal-content">
+                <h2 class="section-title text-3xl">User Profile</h2>
+                <p class="section-subtitle text-base mb-6">View and manage your account details.</p>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Username:</label>
+                        <p id="profile-username" class="text-lg font-semibold text-gray-900"></p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Password:</label>
+                        <!-- IMPORTANT: Displaying plaintext password is a security risk. -->
+                        <!-- In a real application, you would implement a "Change Password" feature -->
+                        <!-- instead of displaying the password. This is for demonstration purposes only. -->
+                        <p id="profile-password" class="text-lg font-semibold text-gray-900">********</p> 
+                    </div>
+                    <a href="#" id="forgot-password-link" class="text-blue-600 hover:underline font-semibold block mt-4 text-center">Forgot Password?</a>
+                    <button type="button" id="profile-logout-button" class="btn-primary w-full mt-6">Logout</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Remaining sections as before, but initially hidden if not logged in -->
+        <section id="home" class="min-h-[70vh] flex items-center bg-gradient-to-br from-blue-50 to-white py-24 px-6">
+            <div class="container mx-auto text-center">
+                <h1 class="text-6xl md:text-7xl font-black text-gray-900 mb-6 leading-tight drop-shadow-sm">Early Oral Cancer Detection with <span class="text-blue-600">Deep Learning</span></h1>
+                <p class="text-xl md:text-2xl text-gray-700 max-w-5xl mx-auto mb-10 leading-relaxed">An innovative approach using the InceptionV3 architecture to automate the diagnosis of oral cancer from medical images, enhancing accuracy and enabling timely intervention.</p>
+                <a href="#detector" class="btn-primary inline-block">Try the Live Detector</a>
+            </div>
+        </section>
+
+        <section id="problem" class="py-24 px-6 bg-gray-50">
+            <div class="container mx-auto">
+                <h2 class="section-title">The Challenge of Late Diagnosis</h2>
+                <p class="section-subtitle">Oral cancer is a significant global health concern, with high mortality rates largely attributed to late-stage diagnoses. This section explains the critical problem that our project addresses: the limitations of conventional diagnostic methods.</p>
+                <div class="grid md:grid-cols-3 gap-8 text-center">
+                    <div class="card-hover-effect p-8">
+                        <h3 class="text-2xl font-semibold text-gray-800 mb-3">Time-Consuming</h3>
+                        <p class="text-gray-600">Traditional methods like visual screening and biopsies are slow, delaying crucial treatment.</p>
+                    </div>
+                    <div class="card-hover-effect p-8">
+                        <h3 class="text-2xl font-semibold text-gray-800 mb-3">Subjective & Error-Prone</h3>
+                        <p class="text-gray-600">Diagnoses depend heavily on the pathologist's expertise, leading to potential variability and errors.</p>
+                    </div>
+                    <div class="card-hover-effect p-8">
+                        <h3 class="text-2xl font-semibold text-gray-800 mb-3">Limited Accessibility</h3>
+                        <p class="text-gray-600">Expert diagnostic services are often scarce in remote or underserved areas, hindering early detection for many.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="solution" class="py-24 px-6 bg-white">
+            <div class="container mx-auto">
+                <h2 class="section-title">An AI-Powered Solution</h2>
+                <p class="section-subtitle">To overcome these challenges, we developed an automated system using a powerful Deep Learning model, InceptionV3. This section details our methodology and system architecture, designed for fast, accurate, and accessible screening.</p>
+                <div class="bg-blue-50 p-10 rounded-xl shadow-inner border border-blue-100">
+                    <h3 class="text-2xl font-bold text-blue-800 mb-8 text-center">System Architecture</h3>
+                    <div class="flex flex-col md:flex-row justify-center items-start md:items-stretch gap-6 text-center text-base font-medium text-gray-700">
+                        
+                        <div class="w-full md:w-auto flex flex-col items-center gap-3">
+                            <div class="w-full max-w-[224px] bg-white p-4 rounded-lg shadow-md border-2 border-blue-300">Frontend (This Page)</div>
+                            <div class="w-px h-8 bg-gray-400"></div>
+                            <div class="flex gap-3 w-full justify-center">
+                                <div class="w-full max-w-[144px] bg-white p-4 rounded-lg shadow-md">Login</div>
+                                <div class="w-full max-w-[144px] bg-white p-4 rounded-lg shadow-md">Register</div>
+                            </div>
+                            <div class="w-px h-8 bg-gray-400"></div>
+                            <div class="w-full max-w-[224px] bg-white p-4 rounded-lg shadow-md">Upload Image</div>
+                        </div>
+
+                        <div class="w-full md:w-auto flex flex-col items-center gap-3 mt-8 md:mt-0">
+                             <div class="w-full max-w-[224px] bg-white p-4 rounded-lg shadow-md border-2 border-green-300">Backend (Python Server)</div>
+                             <div class="w-px h-8 bg-gray-400"></div>
+                             <div class="w-full max-w-[224px] bg-white p-4 rounded-lg shadow-md">Load Dataset</div>
+                             <div class="w-px h-8 bg-gray-400"></div>
+                             <div class="w-full max-w-[224px] bg-white p-4 rounded-lg shadow-md">Data Preprocessing</div>
+                             <div class="w-px h-8 bg-gray-400"></div>
+                             <div class="w-full max-w-[224px] bg-white p-4 rounded-lg shadow-md">Model Building (InceptionV3)</div>
+                             <div class="w-px h-8 bg-gray-400"></div>
+                             <div class="w-full max-w-[224px] bg-white p-4 rounded-lg shadow-md">Model Prediction API</div>
+                        </div>
+                    </div>
+                     <div class="mt-6 flex justify-center">
+                         <div class="w-px h-16 bg-gray-400 rotate-45 translate-x-16 md:translate-x-32"></div>
+                         <div class="w-px h-16 bg-gray-400 -rotate-45 -translate-x-16 md:-translate-x-32"></div>
+                     </div>
+                     <div class="flex justify-center mt-[-1.5rem]">
+                          <div class="w-full max-w-[224px] bg-blue-300 text-blue-900 font-bold p-5 rounded-lg shadow-xl">Get Result</div>
+                     </div>
+                </div>
+            </div>
+        </section>
+
+
+        <section id="detector" class="py-24 px-6 hidden">
+            <div class="container mx-auto">
+                <h2 class="section-title">Interactive Detector</h2>
+                <p class="section-subtitle">Experience the live system. Upload an image of an oral lesion, and our AI model will provide an analysis. This tool is for demonstration purposes only and does not provide a medical diagnosis.</p>
+                <div class="max-w-xl mx-auto bg-white p-10 rounded-xl shadow-lg border border-gray-100">
+                    <div id="image-upload-area" class="border-2 border-dashed border-blue-300 rounded-xl p-10 text-center cursor-pointer hover:border-blue-500 transition-colors duration-200">
+                        <input type="file" id="image-input" class="hidden" accept="image/*">
+                        <p id="upload-text" class="text-blue-600 text-lg font-medium">Click here to upload an image</p>
+                        <img id="image-preview" src="" alt="Image preview" class="hidden max-h-64 mx-auto mt-6 rounded-lg shadow-md border border-gray-200"/>
+                    </div>
+                    <button type="submit" id="detect-button" class="btn-primary w-full mt-8 disabled:bg-gray-400">Analyze Image</button>
+                    
+                    <div id="result-area" class="mt-10 text-center hidden">
+                        <div id="loader" class="hidden my-6">
+                            <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-600 mx-auto"></div>
+                            <p class="text-blue-500 mt-4 text-lg font-medium">Analyzing... Please wait.</p>
+                        </div>
+                        <div id="result-content" class="hidden">
+                            <p class="text-gray-600 mb-3 text-lg">Analysis complete. Result:</p>
+                            <h3 id="result-text" class="text-4xl font-bold mb-4"></h3>
+                            <div class="w-full bg-gray-200 rounded-full h-5 mt-4">
+                                <div id="confidence-bar" class="h-5 rounded-full" style="width: 0%;"></div>
+                            </div>
+                            <p id="confidence-text" class="text-base text-gray-500 mt-3"></p>
+                        </div>
+                           <div id="error-message" class="error-message hidden"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="performance" class="py-24 px-6 bg-gray-50">
+            <div class="container mx-auto">
+                <h2 class="section-title">Model Performance & Accuracy</h2>
+                <p class="section-subtitle">The effectiveness of a diagnostic tool is measured by its performance. Our InceptionV3-based model demonstrates high accuracy and reliability, validated through rigorous testing on key metrics. The chart below visualizes the model's proficiency.</p>
+                <div class="chart-container">
+                    <canvas id="performanceChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <section id="future" class="py-24 px-6 bg-white">
+            <div class="container mx-auto">
+                <h2 class="section-title">Future Scope</h2>
+                <p class="section-subtitle">Innovation doesn't stop here. We have a clear roadmap for enhancing the system's capabilities, accessibility, and clinical utility to maximize its impact on public health.</p>
+                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-5xl mx-auto">
+                    <div class="card-hover-effect p-6 flex items-center space-x-4">
+                        <span class="text-3xl">📱</span>
+                        <p class="font-semibold text-gray-700 text-lg">Mobile Application Development</p>
+                    </div>
+                    <div class="card-hover-effect p-6 flex items-center space-x-4">
+                               <span class="text-3xl">🌐</span>
+                        <p class="font-semibold text-gray-700 text-lg">Multilingual & Voice-Assisted Support</p>
+                    </div>
+                    <div class="card-hover-effect p-6 flex items-center space-x-4">
+                               <span class="text-3xl">💬</span>
+                        <p class="font-semibold text-gray-700 text-lg">Real-Time Chat with Medical Experts</p>
+                    </div>
+                    <div class="card-hover-effect p-6 flex items-center space-x-4">
+                               <span class="text-3xl">📈</span>
+                        <p class="font-semibold text-gray-700 text-lg">Continuous Dataset Expansion</p>
+                    </div>
+                        <div class="card-hover-effect p-6 flex items-center space-x-4">
+                               <span class="text-3xl">🔒</span>
+                        <p class="font-semibold text-gray-700 text-lg">Enhanced Privacy & Data Protection</p>
+                    </div>
+                        <div class="card-hover-effect p-6 flex items-center space-x-4">
+                               <span class="text-3xl">🏥</span>
+                        <p class="font-semibold text-gray-700 text-lg">Integration with Electronic Health Records (EHR)</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+    
+    <footer class="bg-gray-900 text-gray-300 py-12 px-6">
+        <div class="container mx-auto text-center">
+               <h3 class="text-xl font-semibold mb-3 text-white">About The Project</h3>
+               <p class="max-w-3xl mx-auto text-sm mb-5 text-gray-400">This project, "Oral Cancer Detection Using Deep Learning," was developed as a Bachelor of Technology thesis by students of the Department of Computer Science and Engineering at Sreenivasa Institute of Technology and Management Studies (2024-2025).</p>
+               <p class="text-xs text-gray-500">&copy; 2025 Oralytics AI. All Rights Reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        // Version 1.21 - Logout link removed from navbar - Timestamp: 20250708124100
+        document.addEventListener('DOMContentLoaded', function () {
+            
+            // --- DOM Element References for Detector ---
+            const imageUploadArea = document.getElementById('image-upload-area');
+            const imageInput = document.getElementById('image-input');
+            const imagePreview = document.getElementById('image-preview');
+            const uploadText = document.getElementById('upload-text');
+            const detectButton = document.getElementById('detect-button');
+            const resultArea = document.getElementById('result-area');
+            const loader = document.getElementById('loader');
+            const resultContent = document.getElementById('result-content');
+            const resultText = document.getElementById('result-text');
+            const confidenceBar = document.getElementById('confidence-bar');
+            const confidenceText = document.getElementById('confidence-text');
+            const errorMessage = document.getElementById('error-message');
+
+            let base64Image = null; // Variable to store the base64 image string
+
+            // --- DOM Element References for Login/Signup ---
+            const loginForm = document.getElementById('login-form');
+            const loginUsernameInput = document.getElementById('login-username');
+            const loginPasswordInput = document.getElementById('login-password');
+            const loginMessage = document.getElementById('login-message');
+            const loginModal = document.getElementById('login-modal'); // Reference to the login modal overlay
+            const goToSignupLink = document.getElementById('go-to-signup-link'); // New reference for the signup link
+
+
+            const signupForm = document.getElementById('signup-form');
+            const signupUsernameInput = document.getElementById('signup-username');
+            const signupEmailInput = document.getElementById('signup-email');
+            const signupPasswordInput = document.getElementById('signup-password');
+            const signupMessage = document.getElementById('signup-message');
+            const signupModal = document.getElementById('signup-modal'); // Reference to the signup modal overlay
+
+
+            // Navigation links for login/signup/logout
+            const navLogin = document.getElementById('nav-login');
+            const navSignup = document.getElementById('nav-signup');
+            // const navLogout = document.getElementById('nav-logout'); // Removed from HTML, no longer needed here
+            const welcomeMessageSpan = document.getElementById('welcome-message'); // Reference to the welcome message span
+            const navProfilePicture = document.getElementById('nav-profile-picture'); // Updated: Reference to the profile picture
+
+            // --- DOM Element References for Profile Modal ---
+            const profileModal = document.getElementById('profile-modal');
+            const profileUsernameDisplay = document.getElementById('profile-username');
+            const profilePasswordDisplay = document.getElementById('profile-password'); // This will display '********'
+            const forgotPasswordLink = document.getElementById('forgot-password-link');
+            const profileLogoutButton = document.getElementById('profile-logout-button');
+
+            // Sections to control visibility (main content sections)
+            const detectorSection = document.getElementById('detector');
+            const homeSection = document.getElementById('home'); 
+            const problemSection = document.getElementById('problem'); 
+            const solutionSection = document.getElementById('solution'); 
+            const performanceSection = document.getElementById('performance'); 
+            const futureSection = document.getElementById('future'); 
+
+            // --- Event Listeners for Detector ---
+            imageUploadArea.addEventListener('click', () => imageInput.click());
+
+            imageInput.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        imagePreview.src = e.target.result;
+                        base64Image = e.target.result; // Store the base64 string
+                        imagePreview.classList.remove('hidden');
+                        uploadText.classList.add('hidden');
+                        detectButton.disabled = false;
+                        resultArea.classList.add('hidden'); // Hide previous results
+                        errorMessage.classList.add('hidden');
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+
+            detectButton.addEventListener('click', async () => {
+                // Reset UI state for a new prediction
+                resultArea.classList.remove('hidden');
+                resultContent.classList.add('hidden');
+                errorMessage.classList.add('hidden');
+                loader.classList.remove('hidden');
+                detectButton.disabled = true; // Disable button during analysis
+
+                try {
+                    // --- API Call ---
+                    // This fetch call sends the uploaded image to the Python/Django backend.
+                    const response = await fetch('http://127.0.0.1:8000/api/predict/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ image: base64Image }),
+                    });
+
+                    if (!response.ok) {
+                        // Handle server-side errors (e.g., 500 Internal Server Error)
+                        const errorData = await response.json();
+                        throw new Error(`Server responded with status: ${response.status}, message: ${errorData.error || response.statusText}`);
+                    }
+
+                    const result = await response.json();
+                    
+                    // Update the UI with the prediction from the model
+                    displayResults(result);
+
+                } catch (error) {
+                    console.error("Error calling prediction API:", error);
+                    displayMessage(errorMessage, "Could not connect to the analysis server. Please ensure the backend is running.", 'error');
+                } finally {
+                    // Hide loader and re-enable button regardless of outcome
+                    loader.classList.add('hidden');
+                    detectButton.disabled = false;
+                }
+            });
+            
+            // --- UI Update Functions for Detector ---
+            function displayResults(result) {
+                resultContent.classList.remove('hidden');
+                const confidence = parseFloat(result.confidence) * 100;
+                
+                if (result.prediction === 'Oral Cancer') { // Assuming 'Oral Cancer' is the string label from your model
+                    resultText.textContent = 'Cancer Detected';
+                    resultText.className = 'text-4xl font-bold text-red-600'; /* Larger, bolder text */
+                    confidenceBar.className = 'h-5 rounded-full bg-red-500 transition-all duration-500'; /* Thicker bar */
+                } else {
+                    resultText.textContent = 'Normal';
+                    resultText.className = 'text-4xl font-bold text-green-600'; /* Larger, bolder text */
+                    confidenceBar.className = 'h-5 rounded-full bg-green-500 transition-all duration-500'; /* Thicker bar */
+                }
+                
+                // Animate the confidence bar
+                setTimeout(() => {
+                   confidenceBar.style.width = `${confidence}%`;
+                }, 100);
+
+                confidenceText.textContent = `Confidence Score: ${confidence.toFixed(2)}%`;
+            }
+            
+            // Generic message display function
+            function displayMessage(element, message, type) {
+                element.textContent = message;
+                element.classList.remove('hidden', 'error-message', 'success-message');
+                if (type === 'error') {
+                    element.classList.add('error-message');
+                } else if (type === 'success') {
+                    element.classList.add('success-message');
+                } else { /* For 'info' or general messages */
+                    element.classList.add('bg-blue-100', 'text-blue-700');
+                }
+                element.classList.remove('hidden'); // Ensure the message box is visible
+            }
+
+
+            // --- Event Listeners for Login/Signup/Logout ---
+            loginForm.addEventListener('submit', handleLogin);
+            signupForm.addEventListener('submit', handleSignup);
+            // Removed navLogout.addEventListener('click', handleLogout);
+            profileLogoutButton.addEventListener('click', handleLogout); // Logout from profile modal
+
+            // Event listeners for navigation links to open modals
+            navLogin.addEventListener('click', (e) => {
+                e.preventDefault();
+                displayMessage(loginMessage, '', ''); // Clear previous messages
+                loginForm.reset(); // Clear form fields
+                showModal(loginModal);
+            });
+            navSignup.addEventListener('click', (e) => {
+                e.preventDefault();
+                displayMessage(signupMessage, '', ''); // Clear previous messages
+                signupForm.reset(); // Clear form fields
+                showModal(signupModal);
+            });
+            // Updated: Event listener for profile picture
+            navProfilePicture.addEventListener('click', (e) => {
+                e.preventDefault();
+                populateProfileModal(); // Populate data before showing
+                showModal(profileModal);
+            });
+
+
+            // New: Event listener for "Sign Up" link within login modal
+            goToSignupLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                hideModal(loginModal);
+                displayMessage(signupMessage, '', ''); // Clear previous messages
+                signupForm.reset(); // Clear form fields
+                showModal(signupModal);
+            });
+
+            // Placeholder for Forgot Password functionality
+            forgotPasswordLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                displayMessage(profileModal.querySelector('.message-box') || profileUsernameDisplay.parentElement, 'Please contact support to reset your password.', 'info');
+                // In a real app, this would redirect to a password reset page or trigger an email.
+            });
+
+
+            // --- Initial check for login status on page load ---
+            checkLoginStatusOnLoad();
+
+            function checkLoginStatusOnLoad() {
+                const isLoggedIn = localStorage.getItem('isLoggedIn');
+                if (isLoggedIn === 'true') {
+                    setLoggedInState(true, localStorage.getItem('username')); 
+                } else {
+                    setLoggedInState(false);
+                    // Show login modal if not logged in
+                    showModal(loginModal); 
+                }
+            }
+
+            // --- Function to manage UI based on login state ---
+            function setLoggedInState(loggedIn, username = '') {
+                if (loggedIn) {
+                    // Show detector and other main content sections
+                    detectorSection.classList.remove('hidden'); 
+                    homeSection.classList.remove('hidden');
+                    problemSection.classList.remove('hidden');
+                    solutionSection.classList.remove('hidden');
+                    performanceSection.classList.remove('hidden');
+                    futureSection.classList.remove('hidden');
+
+                    // Hide login/signup modals and their nav links
+                    navLogin.classList.add('hidden');          
+                    navSignup.classList.add('hidden');         
+                    // navLogout.classList.add('hidden'); // No longer exists in HTML
+                    welcomeMessageSpan.classList.remove('hidden'); 
+                    navProfilePicture.classList.remove('hidden'); // Show profile picture
+                    welcomeMessageSpan.textContent = `Welcome, ${username}!`; 
+                    
+                    hideModal(loginModal); 
+                    hideModal(signupModal); 
+
+                } else {
+                    // Hide detector and other main content sections
+                    detectorSection.classList.add('hidden');   
+                    homeSection.classList.add('hidden');
+                    problemSection.classList.add('hidden');
+                    solutionSection.classList.add('hidden');
+                    performanceSection.classList.add('hidden');
+                    futureSection.classList.add('hidden');
+
+                    // Show login/signup nav links and hide welcome/profile picture
+                    navLogin.classList.remove('hidden');       
+                    navSignup.classList.remove('hidden');      
+                    // navLogout.classList.add('hidden'); // No longer exists in HTML
+                    welcomeMessageSpan.classList.add('hidden'); 
+                    navProfilePicture.classList.add('hidden'); // Hide profile picture
+                    welcomeMessageSpan.textContent = ''; 
+                }
+            }
+
+            // --- Modal show/hide functions ---
+            function showModal(modalElement) {
+                modalElement.classList.remove('hidden');
+                document.body.classList.add('modal-open'); 
+            }
+
+            function hideModal(modalElement) {
+                modalElement.classList.add('hidden');
+                document.body.classList.remove('modal-open'); 
+            }
+
+            // --- Populate Profile Modal Function ---
+            function populateProfileModal() {
+                const username = localStorage.getItem('username') || 'N/A';
+                // IMPORTANT: For security, never store or display actual passwords in localStorage or plaintext.
+                // This is a placeholder. In a real app, you'd have a "Change Password" feature.
+                const password = localStorage.getItem('password') ? '********' : 'Not saved'; 
+
+                profileUsernameDisplay.textContent = username;
+                profilePasswordDisplay.textContent = password;
+            }
+
+
+            // --- Login Function ---
+            async function handleLogin(event) {
+                event.preventDefault(); 
+                
+                const username = loginUsernameInput.value;
+                const password = loginPasswordInput.value;
+
+                displayMessage(loginMessage, 'Logging in...', 'info'); // Provide immediate feedback
+
+                try {
+                    const response = await fetch('http://127.0.0.1:8000/api/login/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ username, password }),
+                    });
+
+                    const data = await response.json();
+                    console.log('Login API Response:', data); // Log the full response
+
+                    if (response.ok) {
+                        displayMessage(loginMessage, data.message || 'Login successful!', 'success');
+                        localStorage.setItem('isLoggedIn', 'true'); 
+                        localStorage.setItem('username', username); 
+                        // For demonstration, storing password. In real app, DO NOT STORE PASSWORD.
+                        localStorage.setItem('password', password); 
+                        setLoggedInState(true, username); 
+                        loginForm.reset(); 
+                    } else {
+                        displayMessage(loginMessage, data.error || 'Login failed. Please check your credentials.', 'error');
+                        console.error('Login failed:', data.error || 'Unknown error');
+                    }
+                } catch (error) {
+                    console.error('Login API error:', error);
+                    displayMessage(loginMessage, 'Could not connect to the login server. Please ensure the backend is running and accessible.', 'error');
+                }
+            }
+
+            // --- Signup Function ---
+            async function handleSignup(event) {
+                event.preventDefault(); 
+
+                const username = signupUsernameInput.value;
+                const password = signupPasswordInput.value;
+                const email = signupEmailInput.value; 
+
+                displayMessage(signupMessage, 'Signing up...', 'info'); // Provide immediate feedback
+
+                try {
+                    const response = await fetch('http://127.0.0.1:8000/api/signup/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ username, password, email }),
+                    });
+
+                    const data = await response.json();
+                    console.log('Signup API Response:', data); // Log the full response
+
+                    if (response.ok) {
+                        displayMessage(signupMessage, data.message || 'Signup successful! You can now log in.', 'success');
+                        localStorage.setItem('isLoggedIn', 'true'); 
+                        localStorage.setItem('username', username); 
+                        // For demonstration, storing password. In real app, DO NOT STORE PASSWORD.
+                        localStorage.setItem('password', password); 
+                        setLoggedInState(true, username); 
+                        signupForm.reset(); 
+                    } else {
+                        displayMessage(signupMessage, data.error || 'Signup failed. Please try a different username.', 'error');
+                        console.error('Signup failed:', data.error || 'Unknown error');
+                    }
+                } catch (error) {
+                    console.error('Signup API error:', error);
+                    displayMessage(signupMessage, 'Could not connect to the signup server. Please ensure the backend is running and accessible.', 'error');
+                }
+            }
+
+            // --- Logout Function ---
+            async function handleLogout(event) {
+                event.preventDefault(); 
+                try {
+                    // Optional: Send a request to a Django logout endpoint if you create one later
+                    // const response = await fetch('http://127.0.0.1:8000/api/logout/', { method: 'POST' });
+                    // if (!response.ok) {
+                    //     console.error('Backend logout failed');
+                    // }
+                    console.log('User logged out.');
+                } catch (error) {
+                    console.error('Error during logout:', error);
+                } finally {
+                    localStorage.removeItem('isLoggedIn'); 
+                    localStorage.removeItem('username'); 
+                    localStorage.removeItem('password'); // Clear password on logout
+                    setLoggedInState(false); 
+                    // Display a message box instead of alert
+                    displayMessage(loginMessage, 'You have been logged out.', 'info'); 
+                    hideModal(profileModal); // Hide profile modal on logout
+                    showModal(loginModal); 
+                }
+            }
+            
+            // --- Chart.js Performance Chart ---
+            const performanceData = {
+                labels: ['Accuracy', 'Precision', 'Recall', 'F1-Score'],
+                datasets: [{
+                    label: 'Model Performance (%)',
+                    data: [93.5, 91.2, 94.1, 92.6], 
+                    backgroundColor: [
+                        'rgba(59, 130, 246, 0.8)', /* Stronger blue */
+                        'rgba(16, 185, 129, 0.8)', /* Stronger green */
+                        'rgba(249, 115, 22, 0.8)', /* Stronger orange */
+                        'rgba(139, 92, 246, 0.8)' /* Stronger purple */
+                    ],
+                    borderColor: [
+                        'rgba(59, 130, 246, 1)',
+                        'rgba(16, 185, 129, 1)',
+                        'rgba(249, 115, 22, 1)',
+                        'rgba(139, 92, 246, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            };
+
+            const config = {
+                type: 'bar',
+                data: performanceData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        label += context.parsed.y + '%';
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: {
+                                callback: function(value) {
+                                    return value + '%'
+                                }
+                            }
+                        },
+                        x: {
+                           ticks: {
+                                font: {
+                                    size: 14
+                                }
+                           }
+                        }
+                    }
+                }
+            };
+            
+            const ctx = document.getElementById('performanceChart');
+            if(ctx) {
+                new Chart(ctx, config);
+            }
+        });
+    </script>
+</body>
+</html>
